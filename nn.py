@@ -159,7 +159,7 @@ class NN:
                 weights2 -= learning_rate * dcdw2
                 weights3 -= learning_rate * dcdw3
 
-            print(dcdw1)
+            print(cost)
         self.weights = [weights1, weights2, weights3]
 
     def predict(self, x: np.ndarray):
@@ -196,81 +196,10 @@ class NN:
 if __name__ == "__main__":
     nn = NN()
 
-    # input_layer = nn.create_layer(784)
-    # hidden_layer1 = nn.create_layer(128)
-    # hidden_layer2 = nn.create_layer(128)
-    # output_layer = nn.create_layer(10)
-
-    # weights1 = nn.create_fully_connected_weights(input_layer.size, hidden_layer.size)
-    # weights2 = nn.create_fully_connected_weights(hidden_layer.size, output_layer.size)
-
-    # X_train = np.array(
-    #     [[1, 2, 3, 4], [1.5, 2, 2.4, 3.5], [3.2, 0.7, 1.5, 2.1], [-0.5, 1.6, -1, 4]]
-    # )
-    # y_train = np.array([2.25, 2.725, 2.675, 0.9])
-
-    X_train = np.array([[3.2, 0.7, 1.5, 2.1]])
-    y_train = np.array([2.675])
+    X_train = np.array([[1, 2, 3, 4], [1.5, 2, 2.4, 3.5], [3.2, 0.7, 1.5, 2.1], [-0.5, 1.6, -1, 4]])
+    y_train = np.array([2.25, 2.725, 2.675, 0.9])
 
     X_test = np.array([[2, 3, 4, 5], [-1, 2, 3, 4]])
     y_test = np.array([4, 1.75])
 
-    nn.train(1, X_train, y_train, 0.1)
-
-
-# learning_rate = 0.01
-
-# for epoch in range(70):
-#     total_cost = 0
-#     # do forward and backward propagation for each input row
-#     for i in range(X_train.shape[0]):
-#         # forward
-#         input_layer = X_train[i].reshape(1, -1)
-#         hidden_layer, hidden_layer_activated = nn.forward(input_layer, weights1)
-#         output_layer, output_layer_activated = nn.forward(hidden_layer_activated, weights2)
-
-#         cost = (output_layer[0][0] - y_train[i]) ** 2
-#         total_cost += cost
-
-#         # backward
-#         dcdl_output = 2 * (output_layer - y_train[i].reshape(1, -1)) * 1
-#         dcdl_hidden, dcdw2 = nn.backward(
-#             dcdl_output, hidden_layer_activated, hidden_layer, weights2
-#         )
-#         dcdl_input, dcdw1 = nn.backward(dcdl_hidden, input_layer, input_layer, weights1)
-
-#         weights1 -= learning_rate * dcdw1
-#         weights2 -= learning_rate * dcdw2
-
-#     print(total_cost)
-
-
-# def predict(x: np.ndarray, weights1: np.ndarray, weights2: np.ndarray):
-#     # do forward propagation
-#     input_layer = x
-#     hidden_layer, hidden_layer_activated = nn.forward(input_layer, weights1)
-#     output_layer, output_layer_activated = nn.forward(hidden_layer_activated, weights2)
-
-#     return output_layer[0][0]
-
-
-# def calculate_error(X: np.ndarray, y: np.array, weights1, weights2):
-#     """
-#     Parameters:
-
-#     - X: nd numpy array of features (m x n)
-#     - y: numpy array
-#     """
-
-#     err = 0
-#     for i in range(X.shape[0]):
-#         prediction = abs(predict(X[i].reshape(1, -1), weights1, weights2) - y[i])
-#         actual = y[i]
-
-#         diff = abs(actual - prediction)
-#         err += diff**2
-
-#     return err / X.shape[0]
-
-
-# print(calculate_error(X_test, y_test, weights1, weights2))
+    nn.train(50, X_train, y_train, 0.001)
