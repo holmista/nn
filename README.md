@@ -17,7 +17,6 @@ This is a toy implementation and is not yet optimized for full MNIST classificat
 ## Installation
 
 1. Install pyenv for managing virtual environments:
-
 ```pip install pyenv```
 
 2. Create a virtual environment:
