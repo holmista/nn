@@ -151,9 +151,9 @@ class NN:
         - cost: The cross-entropy cost
         """
         # calculate probabilities via applying softmax
-        normalized_z = z - z.max()
-        exps = np.exp(normalized_z)
-        probs = exps / exps.sum(axis=1, keepdims=True)
+        shifted_z = z - np.max(z, axis=1, keepdims=True)
+        exps = np.exp(shifted_z)
+        probs = exps / (np.sum(exps, axis=1, keepdims=True) + 1e-8)
 
         # calculate cost
         n = y_true.shape[0]

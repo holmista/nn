@@ -25,7 +25,7 @@ model = keras.Sequential([
 ])
 
 # Compile the model
-model.compile(optimizer='adam',
+model.compile(
               loss='categorical_crossentropy',
               metrics=['accuracy'])
 

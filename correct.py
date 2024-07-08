@@ -79,7 +79,7 @@ import numpy as np
 
 class NN:
     def __init__(self):
-        self.weights = []
+        self.weights = None
 
     def create_layer(self, n: int):
         """
@@ -228,11 +228,9 @@ class NN:
         - cost: The cross-entropy cost
         """
         # calculate probabilities via applying softmax
-        normalized_z = z - z.max()
-        # exps = np.exp(normalized_z)
-        # probs = exps / exps.sum(axis=1, keepdims=True)
-        exps = np.exp(normalized_z)
-        probs = exps / (exps.sum(axis=1, keepdims=True) + 1e-8)
+        shifted_z = z - np.max(z, axis=1, keepdims=True)
+        exps = np.exp(shifted_z)
+        probs = exps / (np.sum(exps, axis=1, keepdims=True) + 1e-8)
 
         # calculate cost
         n = y_true.shape[0]
@@ -259,8 +257,8 @@ class NN:
             regularization_coefficient:int):
         
         input_layer = self.create_layer(X_train.shape[1])
-        hidden_layer1 = self.create_layer(64)
-        hidden_layer2 = self.create_layer(64)
+        hidden_layer1 = self.create_layer(16)
+        hidden_layer2 = self.create_layer(16)
         output_layer = self.create_layer(10)
 
         weights1 = self.create_fully_connected_weights(input_layer.size, hidden_layer1.size)
@@ -304,13 +302,45 @@ class NN:
                 bias3 -= learning_rate * db3
 
                 total_cost += cost
-            # if (epoch+1) % 1000 == 0:
-            print(f"Epoch {epoch + 1}, cost: {total_cost}")
+            if (epoch+1) % 10 == 0:
+                print(f"Epoch {epoch + 1}, cost: {total_cost}")
             # print(f"Epoch {epoch + 1}, cost: {total_cost}")
 
-        # self.weights = np.array([weights1, weights2, weights3])
+        self.weights = [weights1, weights2, weights3]
 
+    def predict(self, X: np.ndarray):
+        """
+        Predicts the labels of the input data
 
+        Parameters:
+        - X: A numpy nd array(n x m) of inputs
+
+        Returns:
+        - A numpy nd array(n x 1) of labels
+        """
+        weights1, weights2, weights3 = self.weights
+        bias1 = np.zeros(weights1.shape[1]).reshape(1, -1)
+        bias2 = np.zeros(weights2.shape[1]).reshape(1, -1)
+        bias3 = np.zeros(weights3.shape[1]).reshape(1, -1)
+
+        z1, hidden_layer_activated1 = self.forward(X, weights1, bias1)
+        z2, hidden_layer_activated2 = self.forward(hidden_layer_activated1, weights2, bias2)
+        z3, output_layer_activated = self.forward(hidden_layer_activated2, weights3, bias3)
+
+        return np.argmax(output_layer_activated, axis=1)
+    
+    def calculate_accuracy(self, y_true: np.ndarray, y_pred: np.ndarray):
+        """
+        Calculates the accuracy of the model in percentages
+
+        Parameters:
+        - y_true: A numpy nd array(n x 1) of true labels
+        - y_pred: A numpy nd array(n x 1) of predicted labels
+
+        Returns:
+        - The accuracy of the model
+        """
+        return np.mean(y_true == y_pred) * 100
 
 if __name__ == "__main__":
     from keras.datasets import mnist
@@ -343,7 +373,28 @@ if __name__ == "__main__":
 
     nn = NN()
 
-    nn.train(10, train_X, train_y, 1e-5, 100, 1e-4)
+    nn.train(200, train_X, train_y, 1e-3, 150, 1e-3)
+    y_pred = nn.predict(test_X)
+    accuracy = nn.calculate_accuracy(np.argmax(test_y, axis=1), y_pred)
+    print(f"Accuracy: {accuracy}")
+    # N = 100 # number of points per class
+    # D = 2 # dimensionality
+    # K = 3 # number of classes
+    # X = np.zeros((N*K,D)) # data matrix (each row = single example)
+    # y = np.zeros(N*K, dtype='uint8') # class labels
+    # for j in range(K):
+    #     ix = range(N*j,N*(j+1))
+    #     r = np.linspace(0.0,1,N) # radius
+    #     t = np.linspace(j*4,(j+1)*4,N) + np.random.randn(N)*0.2 # theta
+    #     X[ix] = np.c_[r*np.sin(t), r*np.cos(t)]
+    #     y[ix] = j
+
+    # one_hot_encoded = np.zeros((y.size, K))
+    # one_hot_encoded[np.arange(y.size), y] = 1
+    # y = one_hot_encoded
+
+    # nn = NN()
+    # nn.train(90000, X, y, 1e-2, 100, 1e-4)
 
 
 
