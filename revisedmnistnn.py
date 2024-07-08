@@ -85,9 +85,6 @@ class NN:
         - dcdl: gradient with respect to layer
         - dcdw: gradient with respect to w
         """
-        # rd = self.relu_gradient(unactivated)
-        # dcdl = (dprev @ w.T) * rd
-        # dcdw = activated.T @ dprev
         rd = self.relu_gradient(unactivated)
         dcdl = dprev.dot(w.T) * rd
         dcdw = activated.T.dot(dprev)
@@ -130,45 +127,45 @@ class NN:
         Returns:
         - activated_z: A numpy nd array(n x m)
         """
-        normalized_z = z - z.max()
-        exps = np.exp(normalized_z)
-        activated_z = exps / exps.sum(axis=1, keepdims=True)
-        return activated_z
+        shifted_z = z - np.max(z, axis=1, keepdims=True)
+        exps = np.exp(shifted_z)
+        probs = exps / (np.sum(exps, axis=1, keepdims=True) + 1e-8)
+        return probs
     
-    def cross_entropy_cost_and_gradient(self, y_true: np.ndarray, z: np.ndarray, w: np.ndarray, reg: float):
+    def cross_entropy_cost(self, y_true: np.ndarray, a: np.ndarray, w: np.ndarray, reg: float):
         """
-        Calculates cross-entropy cost of a softmax layer and also calculates gradient of softmax layer and weights connected to it
+        Calculates cross-entropy cost of a softmax layer
 
         Parameters:
         - y_true: A numpy nd array(n x m) of one-hot encoded labels. This is a minibatch of size n, m is the amount of classes
-        - z: A numpy nd array(n x d), activation of the previous layer. This is a minibatch of size n, d is the amount of neurons
+        - a: A numpy nd array(n x m), activation of the softmax layer. This is a minibatch of size n, m is the amount of classes
         - w: A numpy nd array(d x m). This are the weights connecting previous layer to softmax later
         - reg: Regularization strength
 
         Returns:
-        - dprobs: The gradient of the softmax layer
-        - dw: The gradient of the weights
         - cost: The cross-entropy cost
         """
-        # calculate probabilities via applying softmax
-        shifted_z = z - np.max(z, axis=1, keepdims=True)
-        exps = np.exp(shifted_z)
-        probs = exps / (np.sum(exps, axis=1, keepdims=True) + 1e-8)
-
-        # calculate cost
         n = y_true.shape[0]
-        cost = -np.sum(y_true * np.log(probs + 1e-15))
-        # regularization
+        cost = -np.sum(y_true * np.log(a + 1e-15))
         cost = cost / n + 0.5 * reg * np.sum(w**2)
+        return cost
+    
+    def softmax_gradient(self, y_true: np.ndarray, a: np.ndarray):
+        """
+        Calculates the gradient of the softmax layer, assuming cross-entropy cost was used
 
-        # calculate gradients
-        dprobs = probs.copy()
-        dprobs -= y_true
-        dprobs /= n
+        Parameters:
+        - y_true: A numpy nd array(n x m) of one-hot encoded labels. This is a minibatch of size n, m is the amount of classes
+        - a: A numpy nd array(n x d), activation of the previous layer. This is a minibatch of size n, d is the amount of neurons
 
-        # dw = z.T @ dprobs
-        # dw += reg * w
-        return dprobs, cost
+        Returns:
+        - da: The gradient of the softmax layer
+        """
+        n = y_true.shape[0]
+        da = a.copy()
+        da -= y_true
+        da /= n
+        return da
     
     def train(
             self, 
@@ -203,13 +200,18 @@ class NN:
                 z1, hidden_layer_activated1 = self.forward(input_layer, weights1, bias1)
                 z2, hidden_layer_activated2 = self.forward(hidden_layer_activated1, weights2, bias2)
                 z3, output_layer_activated = self.forward(hidden_layer_activated2, weights3, bias3)
+                output_layer_activated = self.softmax_activation(z3)
 
                 # cost
-                dprobs, cost = self.cross_entropy_cost_and_gradient(y_batch, z3, weights3, regularization_coefficient)
+                cost = self.cross_entropy_cost(y_batch, output_layer_activated, weights3, regularization_coefficient)
+
+                # backward
+                dprobs = self.softmax_gradient(y_batch, output_layer_activated)
                 dhl2, dw3, db3 = self.backward(dprobs, hidden_layer_activated2, z2, weights3)
                 dhl1, dw2, db2 = self.backward(dhl2, hidden_layer_activated1, z1, weights2)
                 _, dw1, db1 = self.backward(dhl1, input_layer, input_layer, weights1)
 
+                # regularization
                 dw3 += regularization_coefficient * weights3
                 dw2 += regularization_coefficient * weights2
                 dw1 += regularization_coefficient * weights1
@@ -227,27 +229,8 @@ class NN:
                 total_cost += cost
             if (epoch+1) % 1000 == 0:
                 print(f"Epoch {epoch + 1}, cost: {total_cost}")
-            # print(f"Epoch {epoch + 1}, cost: {total_cost}")
 
         self.weights = np.array([weights1, weights2, weights3])
-
-    def predict(self, x: np.ndarray):
-        """
-        Predicts the class of an input
-
-        Parameters:
-        - x: A numpy nd array(1 x m) of inputs
-
-        Returns:
-        - The predicted class
-        """
-        input_layer = x
-        z1, hidden_layer_activated1 = self.forward(input_layer, weights1)
-        z2, hidden_layer_activated2 = self.forward(hidden_layer_activated1, weights2)
-        z3, _ = self.forward(hidden_layer_activated2, weights3)
-
-
-        return output_layer[0]
 
 if __name__ == "__main__":
 

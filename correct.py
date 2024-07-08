@@ -1,80 +1,3 @@
-# import numpy as np
-
-# N = 100 # number of points per class
-# D = 2 # dimensionality
-# K = 3 # number of classes
-# X = np.zeros((N*K,D)) # data matrix (each row = single example)
-# y = np.zeros(N*K, dtype='uint8') # class labels
-# for j in range(K):
-#     ix = range(N*j,N*(j+1))
-#     r = np.linspace(0.0,1,N) # radius
-#     t = np.linspace(j*4,(j+1)*4,N) + np.random.randn(N)*0.2 # theta
-#     X[ix] = np.c_[r*np.sin(t), r*np.cos(t)]
-#     y[ix] = j
-
-# # initialize parameters randomly
-# h = 100 # size of hidden layer
-# W = 0.01 * np.random.randn(D,h)
-# b = np.zeros((1,h))
-# W2 = 0.01 * np.random.randn(h,K)
-# b2 = np.zeros((1,K))
-
-# # some hyperparameters
-# step_size = 1e-0
-# reg = 1e-3 # regularization strength
-
-# # gradient descent loop
-# num_examples = X.shape[0]
-# for i in range(10000):
-
-# # evaluate class scores, [N x K]
-#     hidden_layer = np.maximum(0, np.dot(X, W) + b) # note, ReLU activation
-#     scores = np.dot(hidden_layer, W2) + b2
-
-#     # compute the class probabilities
-#     exp_scores = np.exp(scores)
-#     probs = exp_scores / np.sum(exp_scores, axis=1, keepdims=True) # [N x K]
-
-#     # compute the loss: average cross-entropy loss and regularization
-#     correct_logprobs = -np.log(probs[range(num_examples),y])
-#     data_loss = np.sum(correct_logprobs)/num_examples
-#     reg_loss = 0.5*reg*np.sum(W*W) + 0.5*reg*np.sum(W2*W2)
-#     loss = data_loss + reg_loss
-#     if i % 1000 == 0:
-#         print ("iteration %d: loss %f" % (i, loss))
-
-#     # compute the gradient on scores
-#     dscores = probs
-#     dscores[range(num_examples),y] -= 1
-#     dscores /= num_examples
-
-#     # backpropate the gradient to the parameters
-#     # first backprop into parameters W2 and b2
-#     dW2 = np.dot(hidden_layer.T, dscores)
-#     db2 = np.sum(dscores, axis=0, keepdims=True)
-#     # next backprop into hidden layer
-#     dhidden = np.dot(dscores, W2.T)
-#     # backprop the ReLU non-linearity
-#     dhidden[hidden_layer <= 0] = 0
-#     # finally into W,b
-#     dW = np.dot(X.T, dhidden)
-#     db = np.sum(dhidden, axis=0, keepdims=True)
-
-#     # add regularization gradient contribution
-#     dW2 += reg * W2
-#     dW += reg * W
-
-#     # perform a parameter update
-#     W += -step_size * dW
-#     b += -step_size * db
-#     W2 += -step_size * dW2
-#     b2 += -step_size * db2
-
-# hidden_layer = np.maximum(0, np.dot(X, W) + b)
-# scores = np.dot(hidden_layer, W2) + b2
-# predicted_class = np.argmax(scores, axis=1)
-# print ('training accuracy: %.2f' % (np.mean(predicted_class == y)))
-
 import numpy as np
 
 class NN:
@@ -162,9 +85,6 @@ class NN:
         - dcdl: gradient with respect to layer
         - dcdw: gradient with respect to w
         """
-        # rd = self.relu_gradient(unactivated)
-        # dcdl = (dprev @ w.T) * rd
-        # dcdw = activated.T @ dprev
         rd = self.relu_gradient(unactivated)
         dcdl = dprev.dot(w.T) * rd
         dcdw = activated.T.dot(dprev)
@@ -207,45 +127,45 @@ class NN:
         Returns:
         - activated_z: A numpy nd array(n x m)
         """
-        normalized_z = z - z.max()
-        exps = np.exp(normalized_z)
-        activated_z = exps / exps.sum(axis=1, keepdims=True)
-        return activated_z
+        shifted_z = z - np.max(z, axis=1, keepdims=True)
+        exps = np.exp(shifted_z)
+        probs = exps / (np.sum(exps, axis=1, keepdims=True) + 1e-8)
+        return probs
     
-    def cross_entropy_cost_and_gradient(self, y_true: np.ndarray, z: np.ndarray, w: np.ndarray, reg: float):
+    def cross_entropy_cost(self, y_true: np.ndarray, a: np.ndarray, w: np.ndarray, reg: float):
         """
-        Calculates cross-entropy cost of a softmax layer and also calculates gradient of softmax layer and weights connected to it
+        Calculates cross-entropy cost of a softmax layer
 
         Parameters:
         - y_true: A numpy nd array(n x m) of one-hot encoded labels. This is a minibatch of size n, m is the amount of classes
-        - z: A numpy nd array(n x d), activation of the previous layer. This is a minibatch of size n, d is the amount of neurons
+        - a: A numpy nd array(n x m), activation of the softmax layer. This is a minibatch of size n, m is the amount of classes
         - w: A numpy nd array(d x m). This are the weights connecting previous layer to softmax later
         - reg: Regularization strength
 
         Returns:
-        - dprobs: The gradient of the softmax layer
-        - dw: The gradient of the weights
         - cost: The cross-entropy cost
         """
-        # calculate probabilities via applying softmax
-        shifted_z = z - np.max(z, axis=1, keepdims=True)
-        exps = np.exp(shifted_z)
-        probs = exps / (np.sum(exps, axis=1, keepdims=True) + 1e-8)
-
-        # calculate cost
         n = y_true.shape[0]
-        cost = -np.sum(y_true * np.log(probs + 1e-15))
-        # regularization
+        cost = -np.sum(y_true * np.log(a + 1e-15))
         cost = cost / n + 0.5 * reg * np.sum(w**2)
+        return cost
+    
+    def softmax_gradient(self, y_true: np.ndarray, a: np.ndarray):
+        """
+        Calculates the gradient of the softmax layer, assuming cross-entropy cost was used
 
-        # calculate gradients
-        dprobs = probs.copy()
-        dprobs -= y_true
-        dprobs /= n
+        Parameters:
+        - y_true: A numpy nd array(n x m) of one-hot encoded labels. This is a minibatch of size n, m is the amount of classes
+        - a: A numpy nd array(n x d), activation of the previous layer. This is a minibatch of size n, d is the amount of neurons
 
-        # dw = z.T @ dprobs
-        # dw += reg * w
-        return dprobs, cost
+        Returns:
+        - da: The gradient of the softmax layer
+        """
+        n = y_true.shape[0]
+        da = a.copy()
+        da -= y_true
+        da /= n
+        return da
     
     def train(
             self, 
@@ -280,13 +200,18 @@ class NN:
                 z1, hidden_layer_activated1 = self.forward(input_layer, weights1, bias1)
                 z2, hidden_layer_activated2 = self.forward(hidden_layer_activated1, weights2, bias2)
                 z3, output_layer_activated = self.forward(hidden_layer_activated2, weights3, bias3)
+                output_layer_activated = self.softmax_activation(z3)
 
                 # cost
-                dprobs, cost = self.cross_entropy_cost_and_gradient(y_batch, z3, weights3, regularization_coefficient)
+                cost = self.cross_entropy_cost(y_batch, output_layer_activated, weights3, regularization_coefficient)
+
+                # backward
+                dprobs = self.softmax_gradient(y_batch, output_layer_activated)
                 dhl2, dw3, db3 = self.backward(dprobs, hidden_layer_activated2, z2, weights3)
                 dhl1, dw2, db2 = self.backward(dhl2, hidden_layer_activated1, z1, weights2)
                 _, dw1, db1 = self.backward(dhl1, input_layer, input_layer, weights1)
 
+                # regularization
                 dw3 += regularization_coefficient * weights3
                 dw2 += regularization_coefficient * weights2
                 dw1 += regularization_coefficient * weights1
@@ -304,7 +229,6 @@ class NN:
                 total_cost += cost
             if (epoch+1) % 10 == 0:
                 print(f"Epoch {epoch + 1}, cost: {total_cost}")
-            # print(f"Epoch {epoch + 1}, cost: {total_cost}")
 
         self.weights = [weights1, weights2, weights3]
 
@@ -377,24 +301,6 @@ if __name__ == "__main__":
     y_pred = nn.predict(test_X)
     accuracy = nn.calculate_accuracy(np.argmax(test_y, axis=1), y_pred)
     print(f"Accuracy: {accuracy}")
-    # N = 100 # number of points per class
-    # D = 2 # dimensionality
-    # K = 3 # number of classes
-    # X = np.zeros((N*K,D)) # data matrix (each row = single example)
-    # y = np.zeros(N*K, dtype='uint8') # class labels
-    # for j in range(K):
-    #     ix = range(N*j,N*(j+1))
-    #     r = np.linspace(0.0,1,N) # radius
-    #     t = np.linspace(j*4,(j+1)*4,N) + np.random.randn(N)*0.2 # theta
-    #     X[ix] = np.c_[r*np.sin(t), r*np.cos(t)]
-    #     y[ix] = j
-
-    # one_hot_encoded = np.zeros((y.size, K))
-    # one_hot_encoded[np.arange(y.size), y] = 1
-    # y = one_hot_encoded
-
-    # nn = NN()
-    # nn.train(90000, X, y, 1e-2, 100, 1e-4)
 
 
 
