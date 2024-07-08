@@ -2,7 +2,11 @@ import numpy as np
 
 class NN:
     def __init__(self):
-        self.weights = None
+        self.weights = []
+        self.layers = []
+        self.activated_layers = []
+        self.biases = []
+        self.activations = []
 
     def create_layer(self, n: int):
         """
@@ -12,7 +16,29 @@ class NN:
         - n amount of nodes in a layer
         """
         layer = np.zeros(n).reshape(1, -1)
+        self.layers.append(layer)
         return layer
+    
+    def create_bias(self, n: int):
+        """
+        Creates and returns a zero numpy array of shape 1 x n
+
+        Parameters:
+        - n amount of nodes in a layer
+        """
+        bias = np.zeros(n).reshape(1, -1)
+        self.biases.append(bias)
+        return bias
+    
+    def define_activations(self, activations: list):
+        """
+        Defines the activation functions for each layer
+        The activations are defined in the order of the layers
+
+        Parameters:
+        - activations: A list of activation functions
+        """
+        self.activations = activations
     
     def create_fully_connected_weights(self, layer1_length: int, layer2_length: int):
         """
@@ -32,6 +58,7 @@ class NN:
         n = layer2_length
 
         weights = np.random.rand(m, n)
+        self.weights.append(weights)
         return weights
     
     def create_batches(self, X: np.ndarray, y: np.ndarray, batch_size: int):
@@ -53,8 +80,16 @@ class NN:
             y_batch = y[i:i+batch_size]
             batches.append((X_batch, y_batch))
         return batches
+    
+    def _resolve_activation(self, activation: str):
+        if activation == "relu":
+            return self.relu_activation
+        elif activation == "softmax":
+            return self.softmax_activation
+        else:
+            raise ValueError("Activation not supported")
 
-    def forward(self, a: np.ndarray, w: np.ndarray, b: np.ndarray):
+    def forward(self, a: np.ndarray, w: np.ndarray, b: np.ndarray, activation: str):
         """
         Computes forward pass for a fully connected layer for a minibatch
 
@@ -62,13 +97,15 @@ class NN:
         - a: A minibatch of Inputs(n x m), activations of previous layer
         - w: A numpy ndarray(m x d), weights connecting this layer to the next layer
         - b: A numpy ndarray(1 x d), biases for this layer
+        - activation: The activation function to be used
 
         Returns a tuple of:
         - z: nd numpy array(n x m)
         - activated: the same as the but activated with relu function
         """
         z = a @ w + b
-        activated = self.relu_activation(z)
+        activation_function = self._resolve_activation(activation)
+        activated = activation_function(z)
         return z, activated
     
     def backward(self, dprev: np.ndarray, activated: np.ndarray, unactivated: np.ndarray, w: np.ndarray):
@@ -176,61 +213,54 @@ class NN:
             batch_size: int, 
             regularization_coefficient:int):
         
-        input_layer = self.create_layer(X_train.shape[1])
-        hidden_layer1 = self.create_layer(16)
-        hidden_layer2 = self.create_layer(16)
-        output_layer = self.create_layer(10)
-
-        weights1 = self.create_fully_connected_weights(input_layer.size, hidden_layer1.size)
-        weights2 = self.create_fully_connected_weights(hidden_layer1.size, hidden_layer2.size)
-        weights3 = self.create_fully_connected_weights(hidden_layer2.size, output_layer.size)
-
-        # create biases
-        bias1 = np.zeros(hidden_layer1.size).reshape(1, -1)
-        bias2 = np.zeros(hidden_layer2.size).reshape(1, -1)
-        bias3 = np.zeros(output_layer.size).reshape(1, -1)
-
         batches = self.create_batches(X_train, y_train, batch_size)
 
         for epoch in range(epochs):
             total_cost = 0
             for X_batch, y_batch in batches:
                 # forward
-                input_layer = X_batch
-                z1, hidden_layer_activated1 = self.forward(input_layer, weights1, bias1)
-                z2, hidden_layer_activated2 = self.forward(hidden_layer_activated1, weights2, bias2)
-                z3, output_layer_activated = self.forward(hidden_layer_activated2, weights3, bias3)
-                output_layer_activated = self.softmax_activation(z3)
+                current_layer = X_batch
+                activated_layers = [X_batch]
+                for i in range(len(self.layers) - 1):
+                    z, activated = self.forward(current_layer, self.weights[i], self.biases[i], self.activations[i])
+                    self.layers[i + 1] = z
+                    activated_layers.append(activated)
+                    current_layer = activated
 
                 # cost
-                cost = self.cross_entropy_cost(y_batch, output_layer_activated, weights3, regularization_coefficient)
+                cost = self.cross_entropy_cost(y_batch, activated_layers[-1], self.weights[-1], regularization_coefficient)
+                dlast_layer = self.softmax_gradient(y_batch, activated_layers[-1])
+
+                # remove last layer from activated layers since it is the output layer and we don't need it
+                activated_layers = activated_layers[:-1]
 
                 # backward
-                dprobs = self.softmax_gradient(y_batch, output_layer_activated)
-                dhl2, dw3, db3 = self.backward(dprobs, hidden_layer_activated2, z2, weights3)
-                dhl1, dw2, db2 = self.backward(dhl2, hidden_layer_activated1, z1, weights2)
-                _, dw1, db1 = self.backward(dhl1, input_layer, input_layer, weights1)
+                weights_gradients = []
+                biases_gradients = []
+                for i in range(len(self.layers) - 2, -1, -1):
+                    dhln, dwn, dbn = self.backward(dlast_layer, activated_layers[i], self.layers[i], self.weights[i])
+                    dlast_layer = dhln
+                    weights_gradients.append(dwn)
+                    biases_gradients.append(dbn)
+
+                weights_gradients = weights_gradients[::-1]
+                biases_gradients = biases_gradients[::-1]
 
                 # regularization
-                dw3 += regularization_coefficient * weights3
-                dw2 += regularization_coefficient * weights2
-                dw1 += regularization_coefficient * weights1
+                for i in range(len(self.weights)):
+                    weights_gradients[i] += regularization_coefficient * self.weights[i]
 
                 # update weights
-                weights1 -= learning_rate * dw1
-                weights2 -= learning_rate * dw2
-                weights3 -= learning_rate * dw3
+                for i in range(len(self.weights)):
+                    self.weights[i] -= learning_rate * weights_gradients[i]
 
                 # update biases
-                bias1 -= learning_rate * db1
-                bias2 -= learning_rate * db2
-                bias3 -= learning_rate * db3
+                for i in range(len(self.biases)):
+                    self.biases[i] -= learning_rate * biases_gradients[i]
 
                 total_cost += cost
             if (epoch+1) % 10 == 0:
                 print(f"Epoch {epoch + 1}, cost: {total_cost}")
-
-        self.weights = [weights1, weights2, weights3]
 
     def predict(self, X: np.ndarray):
         """
@@ -242,16 +272,12 @@ class NN:
         Returns:
         - A numpy nd array(n x 1) of labels
         """
-        weights1, weights2, weights3 = self.weights
-        bias1 = np.zeros(weights1.shape[1]).reshape(1, -1)
-        bias2 = np.zeros(weights2.shape[1]).reshape(1, -1)
-        bias3 = np.zeros(weights3.shape[1]).reshape(1, -1)
+        current_layer = X
+        for i in range(len(self.layers) - 1):
+            z, activated = self.forward(current_layer, self.weights[i], self.biases[i], self.activations[i])
+            current_layer = activated
 
-        z1, hidden_layer_activated1 = self.forward(X, weights1, bias1)
-        z2, hidden_layer_activated2 = self.forward(hidden_layer_activated1, weights2, bias2)
-        z3, output_layer_activated = self.forward(hidden_layer_activated2, weights3, bias3)
-
-        return np.argmax(output_layer_activated, axis=1)
+        return np.argmax(current_layer, axis=1)
     
     def calculate_accuracy(self, y_true: np.ndarray, y_pred: np.ndarray):
         """
@@ -297,7 +323,23 @@ if __name__ == "__main__":
 
     nn = NN()
 
-    nn.train(200, train_X, train_y, 1e-3, 150, 1e-3)
+    input_layer = nn.create_layer(train_X.shape[1])
+    hidden_layer1 = nn.create_layer(16)
+    hidden_layer2 = nn.create_layer(16)
+    output_layer = nn.create_layer(10)
+
+    nn.activations = ["relu", "relu", "softmax"]
+
+    weights1 = nn.create_fully_connected_weights(input_layer.size, hidden_layer1.size)
+    weights2 = nn.create_fully_connected_weights(hidden_layer1.size, hidden_layer2.size)
+    weights3 = nn.create_fully_connected_weights(hidden_layer2.size, output_layer.size)
+
+    # create biases
+    bias1 = nn.create_bias(hidden_layer1.size)
+    bias2 = nn.create_bias(hidden_layer2.size)
+    bias3 = nn.create_bias(output_layer.size)
+
+    nn.train(10, train_X, train_y, 1e-3, 150, 1e-3)
     y_pred = nn.predict(test_X)
     accuracy = nn.calculate_accuracy(np.argmax(test_y, axis=1), y_pred)
     print(f"Accuracy: {accuracy}")
