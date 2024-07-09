@@ -10,7 +10,7 @@ This neural network is designed to classify handwritten digits from the MNIST da
 - One-hot encoding of labels
 - Normalization of pixel values
 - Reshaping of images to 1D arrays
-- A basic neural network implementation in the `mnistnn` module
+- A basic neural network implementation in the `mnist` module
 
 This implementation predicts testing data with up to 90% accuracy.
 
