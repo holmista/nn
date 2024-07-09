@@ -1,6 +1,6 @@
 # MNIST Neural Network Experiment
 
-This project is an experimental implementation of a neural network for MNIST digit classification. It's currently a work in progress and serves as a template or starting point for further development.
+This project is an experimental implementation of a neural network for MNIST digit classification.
 
 ## Project Description
 
