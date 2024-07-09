@@ -12,7 +12,7 @@ This neural network is designed to classify handwritten digits from the MNIST da
 - Reshaping of images to 1D arrays
 - A basic neural network implementation in the `mnistnn` module
 
-This is a toy implementation and is not yet optimized for full MNIST classification.
+This implementation predicts testing data with up to 90% accuracy.
 
 ## Installation
 
@@ -28,5 +28,15 @@ This is a toy implementation and is not yet optimized for full MNIST classificat
 4. Install the required packages:
 ```pip install -r requirements.txt```
 
-## Future Work
-This project needs further development and debugging to be a fully functional neural network for MNIST classification.
+## Training the model
+
+To train the model, run the following command:
+```python3 mnist/nn.py```
+There's already initialized network architecture but you can change it for experimentation.
+Running the above file will also save the model to the `model` directory. The model can later be loaded and used for prediction.
+
+## Predicting with the model
+
+To predict with the model, run the following command:
+```python3 mnist/main.py```
+This will load the model from the `model` directory and predict the labels for some of the testing data.
